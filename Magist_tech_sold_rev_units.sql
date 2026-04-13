@@ -87,10 +87,10 @@ WHERE
 and o.order_status IN ('delivered');
 
 
--- Can you work out the average monthly income of all sellers? 1164e
+-- Average monthly income of all sellers? 1164e
 select 13221498/454/25;
 
--- Can you work out the average monthly income of all Tech sellers? 116.46e
+-- Average monthly income of all Tech sellers? 116.46e
 select 1321858/454/25;
 
 
