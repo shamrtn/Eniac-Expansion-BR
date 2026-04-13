@@ -29,7 +29,15 @@ The project involved a full database restoration from the dump file. Data was cl
 --> <u>Communication</u>: Canva
 
 📁** Project Structure**
-![Chart Title]() *
-/Visualizations: PNG exports of Tableau dashboards showing the "Warehouse vs. Carrier" speed gap.
+![Magist Logistic time delivery](images/Magist_logistic_delivery.png)
+*Handling time from both Magist and Carrier is inefficient
 
-/Presentation: Final slide deck with the "Conditional Yes" recommendation for the Eniac Board.
+! [Tech sellers opportunity](images/Magist_10_tech_seller_rev.png)
+* No real competitor playing in Eniac's field
+
+
+**Final recommendations:**
+## To move forward with Magist, Eniac is requesting those conditions:
+_Premium delivery service option
+Dedicated premium customer support
+Dedicated tech-handling team for our product or double check protocol_
