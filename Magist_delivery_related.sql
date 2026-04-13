@@ -1,0 +1,321 @@
+use magist;
+
+select -- checking the time delivery
+order_purchase_timestamp,
+order_estimated_delivery_date
+from orders
+where datediff(order_estimated_delivery_date,order_purchase_timestamp)>50;
+
+
+-- Are orders actually delivered?
+select order_status, count(*) as total_orders
+from orders 
+group by order_status; -- only 96478 orders are delivered. 
+
+select -- 25 months available. But for delivered, only values appaearing until 08.2018
+year(order_purchase_timestamp) as order_year,
+month(order_purchase_timestamp) as order_month, 
+count(*) as total_ord
+from orders
+where order_status="delivered"
+group by 
+order_year,
+order_month
+order by 
+order_year desc,
+order_month desc;
+
+-- What’s the average time between the order being placed and the product being delivered?
+select 
+count(*) as total_orders, round(avg(datediff(order_delivered_customer_date,order_purchase_timestamp))) as avg_delivery,
+CASE
+	WHEN year(order_delivered_customer_date)=2018 then "2018"
+    WHEN year(order_delivered_customer_date)=2017 then "2017"
+    ELSE "2016"
+END AS "year_delivery"
+from orders
+where order_status = "delivered" 
+group by year_delivery
+order by 
+year_delivery desc,
+total_orders desc;
+
+select -- average delivery time 
+round(avg(datediff(order_delivered_customer_date,order_purchase_timestamp)),1) as avg_delivery,
+CASE
+	WHEN year(order_estimated_delivery_date)=2018 then "2018"
+    WHEN year(order_estimated_delivery_date)=2017 then "2017"
+    ELSE "2016"
+END AS "year_delivery"
+from orders
+where order_status = "delivered" 
+group by year_delivery
+order by 
+year_delivery desc;
+
+
+select -- general delays per year
+CASE
+	WHEN year(order_delivered_customer_date)=2018 then "2018"
+    WHEN year(order_delivered_customer_date)=2017 then "2017"
+    ELSE "2016"
+END AS "year_delivery",
+CASE 
+	WHEN datediff(order_delivered_customer_date,order_estimated_delivery_date)<0 then "faster"
+    WHEN datediff(order_delivered_customer_date,order_estimated_delivery_date)>0 then "delayed"
+    ELSE "on time"
+END AS "Delivery_speed",
+count(*)    
+from orders
+group by delivery_speed, year_delivery
+order by year_delivery desc,
+delivery_speed desc
+;
+
+SELECT -- Delayed tech categories
+    CASE
+        WHEN YEAR(order_delivered_customer_date) = 2018 THEN '2018'
+        WHEN YEAR(order_delivered_customer_date) = 2017 THEN '2017'
+        ELSE '2016'
+    END AS 'year_delivery',
+    pt.product_category_name_english,
+    CASE
+        WHEN product_weight_g > 5000 THEN 'heavy'
+        WHEN product_weight_g > 1000 THEN 'mid weight'
+        ELSE 'light_weight'
+    END AS 'weight_class',
+    COUNT(*)
+FROM
+    orders o
+        LEFT JOIN
+    order_items USING (order_id)
+        LEFT JOIN
+    products p USING (product_id)
+        LEFT JOIN
+    product_category_name_translation pt USING (product_category_name)
+WHERE
+    DATEDIFF(order_delivered_customer_date,
+            order_estimated_delivery_date) > 0
+        AND product_category_name_english IN ('audio' , 'electronics',
+        'computers_accessories',
+        'computers',
+        'telephony')
+GROUP BY year_delivery , product_category_name_english, weight_class
+ORDER BY 
+year_delivery DESC,
+count(*) desc
+;
+
+SELECT -- delayed tech categories - warehouse's fault
+CASE 
+        WHEN DATEDIFF(o.order_delivered_carrier_date, o.order_purchase_timestamp) > 15 THEN 'Warehouse: Very Late (>15d)'
+        WHEN DATEDIFF(o.order_delivered_carrier_date, o.order_purchase_timestamp) > 5 THEN 'Warehouse: Late (5-15d)'
+        ELSE 'Warehouse: On Time'
+    END AS warehouse_status,
+    CASE
+        WHEN YEAR(order_delivered_customer_date) = 2018 THEN '2018'
+        WHEN YEAR(order_delivered_customer_date) = 2017 THEN '2017'
+        ELSE '2016'
+    END AS 'year_delivery',
+    pt.product_category_name_english,
+    COUNT(*)
+FROM
+    orders o
+        LEFT JOIN
+    order_items USING (order_id)
+        LEFT JOIN
+    products p USING (product_id)
+        LEFT JOIN
+    product_category_name_translation pt USING (product_category_name)
+WHERE
+    DATEDIFF(o.order_delivered_carrier_date, o.order_purchase_timestamp) > 5
+        AND product_category_name_english IN ('audio' , 'electronics',
+        'computers_accessories',
+        'computers',
+        'telephony') and order_status='delivered'
+GROUP BY year_delivery , product_category_name_english, warehouse_status
+ORDER BY 
+year_delivery DESC,
+warehouse_status desc,
+count(*) desc
+;
+
+SELECT -- delayed tech categories - carrier's fault
+CASE
+	WHEN DATEDIFF(order_delivered_customer_date, order_delivered_carrier_date) > 15 THEN 'Carrier: Very Late (>15d)'
+        WHEN DATEDIFF(order_delivered_customer_date, order_delivered_carrier_date) > 5 THEN 'Carrier: Late (5-15d)'
+        ELSE 'Carrier: on time'
+    END AS carrier_status,
+    CASE
+        WHEN YEAR(order_delivered_customer_date) = 2018 THEN '2018'
+        WHEN YEAR(order_delivered_customer_date) = 2017 THEN '2017'
+        ELSE '2016'
+    END AS 'year_delivery',
+    pt.product_category_name_english,
+    COUNT(*)
+FROM
+    orders o
+        LEFT JOIN
+    order_items USING (order_id)
+        LEFT JOIN
+    products p USING (product_id)
+        LEFT JOIN
+    product_category_name_translation pt USING (product_category_name)
+WHERE
+    DATEDIFF(order_delivered_customer_date, order_delivered_carrier_date) > 5
+        AND product_category_name_english IN ('audio' , 'electronics',
+        'computers_accessories',
+        'computers',
+        'telephony') and order_status='delivered'
+GROUP BY year_delivery , product_category_name_english, carrier_status
+ORDER BY 
+year_delivery DESC,
+carrier_status desc,
+count(*) desc
+;
+
+
+select -- warehouse + carrier timing aggr
+max(datediff(order_delivered_carrier_date,order_purchase_timestamp)) as max_warehouse_timing,
+min(datediff(order_delivered_carrier_date,order_purchase_timestamp)) as min_warehouse_timing,
+avg(datediff(order_delivered_carrier_date,order_purchase_timestamp)) as avg_warehouse_timing,
+max(datediff(order_delivered_customer_date,order_delivered_carrier_date)) as max_carrier_timing,
+min(datediff(order_delivered_customer_date,order_delivered_carrier_date)) as min_carrier_timing,
+avg(datediff(order_delivered_customer_date,order_delivered_carrier_date)) as avg_carrier_timing
+from orders
+where order_status="delivered" and order_delivered_carrier_date is NOT NULL
+;
+
+SELECT -- warehouse + carrier timing order count situations
+    CASE
+        WHEN YEAR(order_delivered_customer_date) = 2018 THEN '2018'
+        WHEN YEAR(order_delivered_customer_date) = 2017 THEN '2017'
+        ELSE '2016'
+    END AS year_delivery,
+    CASE 
+        WHEN DATEDIFF(order_delivered_carrier_date, order_purchase_timestamp) > 15 THEN 'warehouse very late'
+        WHEN DATEDIFF(order_delivered_carrier_date, order_purchase_timestamp) > 5 THEN 'warehouse late'
+        ELSE 'on time'
+    END AS warehouse_timing,
+    CASE
+        WHEN DATEDIFF(order_delivered_customer_date, order_delivered_carrier_date) > 15 THEN 'carrier very late'
+        WHEN DATEDIFF(order_delivered_customer_date, order_delivered_carrier_date) > 5 THEN 'carrier late'
+        ELSE 'on time'
+    END AS carrier_timing,
+    COUNT(*) AS order_count
+FROM orders
+WHERE order_status = 'delivered'
+GROUP BY year_delivery, warehouse_timing, carrier_timing
+ORDER BY year_delivery DESC, order_count DESC;
+
+SELECT 
+	CASE
+        WHEN YEAR(order_delivered_customer_date) = 2018 THEN '2018'
+        WHEN YEAR(order_delivered_customer_date) = 2017 THEN '2017'
+        ELSE '2016'
+    END AS year_delivery,
+    t.product_category_name_english AS category,    -- Grouping the warehouse delay
+    CASE 
+        WHEN DATEDIFF(o.order_delivered_carrier_date, o.order_purchase_timestamp) > 15 THEN 'Warehouse: Very Late (>15d)'
+        WHEN DATEDIFF(o.order_delivered_carrier_date, o.order_purchase_timestamp) > 5 THEN 'Warehouse: Late (5-15d)'
+        ELSE 'Warehouse: On Time'
+    END AS warehouse_status,
+    -- Grouping the carrier delay
+    CASE
+        WHEN DATEDIFF(o.order_delivered_customer_date, o.order_delivered_carrier_date) > 15 THEN 'Carrier: Very Late (>15d)'
+        WHEN DATEDIFF(o.order_delivered_customer_date, o.order_delivered_carrier_date) > 5 THEN 'Carrier: Late (5-15d)'
+        ELSE 'Carrier: On Time'
+    END AS carrier_status,
+    COUNT(DISTINCT o.order_id) AS total_orders,
+    ROUND(AVG(oi.price), 2) AS avg_price
+FROM orders o
+JOIN order_items oi ON o.order_id = oi.order_id
+JOIN products p ON oi.product_id = p.product_id
+JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name
+WHERE o.order_status = 'delivered'and DATEDIFF(o.order_delivered_carrier_date, o.order_purchase_timestamp) > 15
+  AND t.product_category_name_english IN ('audio', 'computers', 'electronics', 'computers_accessories', 'telephony')
+GROUP BY category, warehouse_status, carrier_status, year_delivery
+ORDER BY 
+year_delivery desc,
+category, total_orders DESC;
+
+SELECT 
+    -- Average days for Warehouse to process Tech
+    ROUND(AVG(DATEDIFF(o.order_delivered_carrier_date, o.order_purchase_timestamp)), 2) AS avg_warehouse_speed,
+    -- Average days for Carrier to deliver Tech
+    ROUND(AVG(DATEDIFF(o.order_delivered_customer_date, o.order_delivered_carrier_date)), 2) AS avg_carrier_speed,
+    -- Total Door-to-Door time for Tech
+    ROUND(AVG(DATEDIFF(o.order_delivered_customer_date, o.order_purchase_timestamp)), 2) AS avg_total_delivery_time
+FROM 
+    orders o
+JOIN order_items oi ON o.order_id = oi.order_id
+JOIN products p ON oi.product_id = p.product_id
+JOIN product_category_name_translation pt ON p.product_category_name = pt.product_category_name
+WHERE 
+    o.order_status = 'delivered'
+    AND YEAR(o.order_purchase_timestamp) IN (2017, 2018)
+    AND pt.product_category_name_english IN ('audio', 'electronics', 'computers_accessories', 'computers', 'telephony')
+    AND o.order_delivered_carrier_date IS NOT NULL
+    AND o.order_delivered_customer_date IS NOT NULL
+;
+
+select  -- count of product per tech cat sold
+CASE
+	WHEN year(order_estimated_delivery_date)=2018 then "2018"
+    WHEN year(order_estimated_delivery_date)=2017 then "2017"
+    ELSE "2016"
+END AS "year_delivery",
+pt.product_category_name_english,
+count(*) from orders
+LEFT JOIN order_items USING (order_id)
+left join products USING (product_id)
+left join product_category_name_translation pt using (product_category_name)
+where pt.product_category_name_english IN ('audio', 'computers', 'electronics', 'computers_accessories', 'telephony')
+group by year_delivery,pt.product_category_name_english 
+order by year_delivery desc; 
+
+-- How many orders are delivered on time vs orders delivered with a delay? in 2018 - 4884 orders delayed
+select 
+CASE
+	WHEN year(order_delivered_customer_date)=2018 then "2018"
+    WHEN year(order_delivered_customer_date)=2017 then "2017"
+    ELSE "2016"
+END AS "year_delivery",
+CASE 
+	WHEN datediff(order_delivered_customer_date,order_estimated_delivery_date)<0 then "faster"
+    WHEN datediff(order_delivered_customer_date,order_estimated_delivery_date)>0 then "delayed"
+    ELSE "on time"
+END AS "Delivery_speed",
+count(*)    
+from orders
+where order_delivered_customer_date IS NOT NULL
+group by delivery_speed, year_delivery
+order by year_delivery desc,
+delivery_speed desc
+;
+
+
+-- Is there any pattern for delayed orders, e.g. big products being delayed more often?
+select 
+count(*) as total_orders, round(avg(p.product_weight_g)) as avg_weight_g, max(p.product_weight_g) as max_weight, min(p.product_weight_g) as min_weight,
+CASE
+	WHEN year(order_estimated_delivery_date)=2018 then "2018"
+    WHEN year(order_estimated_delivery_date)=2017 then "2017"
+    ELSE "2016"
+END AS "year_delivery",
+CASE
+	WHEN datediff(order_delivered_customer_date,order_purchase_timestamp)>100 then ": >100 days = BIG PROBLEM" -- Can't say delivery_time cause I just created it in this statment
+    WHEN datediff(order_delivered_customer_date,order_purchase_timestamp)>50 then ": >50 days = Very long delivery"
+    WHEN datediff(order_delivered_customer_date,order_purchase_timestamp)>20 then ": >20 days = long delivery"
+    WHEN datediff(order_delivered_customer_date,order_purchase_timestamp)>10 then ": >10 days = Average delivery"
+    ELSE ": <10 days = Fast delivery"
+END AS "Delivery_type"    
+from orders o
+left join order_items oi using (order_id)
+left join products p using (product_id)
+where order_status = "delivered"
+group by delivery_type, year_delivery
+order by 
+year_delivery desc,
+total_orders desc;
+
