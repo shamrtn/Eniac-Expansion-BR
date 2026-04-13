@@ -54,7 +54,7 @@ order by
 year_delivery desc;
 
 
-select -- delays per year
+select -- general delays per year
 CASE
 	WHEN year(order_delivered_customer_date)=2018 then "2018"
     WHEN year(order_delivered_customer_date)=2017 then "2017"
@@ -175,17 +175,7 @@ count(*) desc
 ;
 
 
-
-select p.product_category_name, o.order_id
-from orders o
-left join order_items
-	USING (order_id)
-left join products p
-	USING (product_id)
-;
-
-
-select
+select -- warehouse + carrier timing aggr
 max(datediff(order_delivered_carrier_date,order_purchase_timestamp)) as max_warehouse_timing,
 min(datediff(order_delivered_carrier_date,order_purchase_timestamp)) as min_warehouse_timing,
 avg(datediff(order_delivered_carrier_date,order_purchase_timestamp)) as avg_warehouse_timing,
@@ -196,28 +186,7 @@ from orders
 where order_status="delivered" and order_delivered_carrier_date is NOT NULL
 ;
 
-SELECT 
-    CASE
-        WHEN YEAR(order_delivered_customer_date) = 2018 THEN '2018'
-        WHEN YEAR(order_delivered_customer_date) = 2017 THEN '2017'
-        ELSE "2016"
-    END AS year_delivery,
-    COUNT(*) AS orders,
-    -- Warehouse Aggregates
-    SUM(CASE WHEN DATEDIFF(order_delivered_carrier_date, order_purchase_timestamp) < 5 THEN 1 ELSE 0 END) AS W_on_time,
-    SUM(CASE WHEN DATEDIFF(order_delivered_carrier_date, order_purchase_timestamp) > 5 THEN 1 ELSE 0 END) AS W_late,
-    SUM(CASE WHEN DATEDIFF(order_delivered_carrier_date, order_purchase_timestamp) > 15 THEN 1 ELSE 0 END) AS W_v_late,
-    -- Carrier Aggregates
-	SUM(CASE WHEN DATEDIFF(order_delivered_customer_date, order_delivered_carrier_date) < 5 THEN 1 ELSE 0 END) AS C_on_time,
-    SUM(CASE WHEN DATEDIFF(order_delivered_customer_date, order_delivered_carrier_date) > 5 THEN 1 ELSE 0 END) AS C_late,
-    SUM(CASE WHEN DATEDIFF(order_delivered_customer_date, order_delivered_carrier_date) > 15 THEN 1 ELSE 0 END) AS C_v_late
-FROM orders
-WHERE order_status = 'delivered'
-GROUP BY year_delivery
-ORDER BY year_delivery DESC;
-
-
-SELECT 
+SELECT -- warehouse + carrier timing order count situations
     CASE
         WHEN YEAR(order_delivered_customer_date) = 2018 THEN '2018'
         WHEN YEAR(order_delivered_customer_date) = 2017 THEN '2017'
@@ -290,7 +259,7 @@ WHERE
     AND o.order_delivered_customer_date IS NOT NULL
 ;
 
-select 
+select  -- count of product per tech cat sold
 CASE
 	WHEN year(order_estimated_delivery_date)=2018 then "2018"
     WHEN year(order_estimated_delivery_date)=2017 then "2017"
@@ -325,12 +294,6 @@ order by year_delivery desc,
 delivery_speed desc
 ;
 
-select 
-order_delivered_customer_date,
-order_estimated_delivery_date
-from orders
-where datediff(order_delivered_customer_date,order_estimated_delivery_date)>0
-;
 
 -- Is there any pattern for delayed orders, e.g. big products being delayed more often?
 select 
